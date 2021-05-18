@@ -1,4 +1,4 @@
-#include <lista.h>
+#include "lista.h"
 
 
 typedef struct nodo
@@ -7,11 +7,20 @@ typedef struct nodo
     struct nodo* prox;
 }nodo_t;
 
+typedef void (*lista_destruir_elemento)(void*);
+
 typedef struct lista{
     nodo_t* prim;
     nodo_t* ult;
     size_t cant;
 }lista_t;
+
+typedef struct lista_iter{
+    nodo_t* act;
+    nodo_t* ant;
+    lista_t* lista;
+}lista_iter_t;
+
 
 
 nodo_t* nodo_crear(void* elem){
@@ -30,6 +39,7 @@ lista_t *lista_crear(void){
 
 
 void destruir_nodo_recursivo(nodo_t* nodo, void (*destruir_dato)(void *)){
+   
     if(!nodo) return;
     destruir_nodo_recursivo(nodo->prox, destruir_dato);
     if(destruir_dato) destruir_dato(nodo->dato);
@@ -60,6 +70,7 @@ bool lista_insertar_primero(lista_t *lista, void *dato){
     if(lista->cant == 0) lista->ult = nodo;
     lista->prim = nodo;
     lista->cant++;
+    return true;
 }
 
 
@@ -108,8 +119,96 @@ size_t lista_largo(const lista_t *lista){
     return lista->cant;
 }
 
+void lista_iterar(lista_t *lista, bool visitar(void *dato, void *extra), void *extra){
+    if(lista_esta_vacia(lista)) return;
+    bool seguir = true;
+    nodo_t* nodo = lista->prim;
+    while (seguir)
+    {
+        seguir = !visitar(nodo->dato, extra);
+        nodo = nodo->prox;
+        if(!nodo) seguir = false;
+    }
+    
+}
 
 
+void _invertir(nodo_t* nodo, nodo_t* ant, lista_t* lista){
+    if(!nodo) return;
+    if(!nodo->prox) lista->prim = nodo;
+    _invertir(nodo->prox, nodo, lista);
+    nodo->prox = ant;
+    return;
+
+
+}
+
+void invertir(lista_t* lista){
+    if(lista_esta_vacia(lista)) return;
+    nodo_t* nodo = lista->prim;
+    nodo_t* ant = NULL;
+    lista->ult = lista->prim;
+    _invertir(nodo, ant, lista);
+
+}
+
+//Primitivas del iterador
+
+lista_iter_t *lista_iter_crear(lista_t *lista){
+    if(lista_esta_vacia(lista)) return NULL;
+    lista_iter_t* iter = calloc(1, sizeof(lista_iter_t));
+    if(iter) {
+        iter->act = lista->prim;
+        iter->lista = lista;
+    }
+    return iter;
+}
+
+bool lista_iter_avanzar(lista_iter_t *iter){
+    if(!iter || !iter->act) return false;
+    iter->ant = iter->act;
+    iter->act = iter->ant->prox;    
+    return true;
+}
+
+void *lista_iter_ver_actual(const lista_iter_t *iter){
+    if(iter && iter->act) return iter->act;
+    return NULL;
+}
+
+bool lista_iter_al_final(const lista_iter_t *iter){
+    if(iter && !iter->act) return true;
+    return false;
+}
+
+void lista_iter_destruir(lista_iter_t *iter){
+    if(iter) free(iter);
+}
+
+bool lista_iter_insertar(lista_iter_t *iter, void *dato){
+    if(!iter) return false;
+    if(!iter->ant) return lista_insertar_primero(iter->lista, dato);
+    if(lista_iter_al_final(iter)) return lista_insertar_ultimo(iter->lista, dato);
+    nodo_t* nodo = nodo_crear(dato);
+    if(!nodo) return false;
+    nodo->prox = iter->act;
+    iter->ant->prox = nodo;
+    iter->act = nodo;
+    return true;
+}
+
+void *lista_iter_borrar(lista_iter_t *iter){
+    if(!iter || lista_iter_al_final(iter)) return NULL;
+    if(!iter->ant) return lista_borrar_primero(iter->lista);
+    if(!iter->act->prox) iter->lista->ult = iter->ant;
+    void* elem = iter->act->dato;
+    nodo_t* nodo = iter->act;
+    iter->ant->prox = iter->act->prox;
+    free(nodo);
+    return elem;
+
+    
+}
 
 
 
